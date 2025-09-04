@@ -1,4 +1,4 @@
-# 📝 RAG PDF QnA with Ollama & LangChain
+# RAG PDF QnA with Ollama & LangChain
 
 This project is  a **local Retrieval-Augmented Generation (RAG) chatbot** built with:
 
@@ -12,7 +12,7 @@ It allows you to **upload PDFs**, embed them locally, and query them using your 
 
 ---
 
-## 🚀 Features
+## Features
 - **Fully local**: No external API calls, all embeddings & LLM inference happen on your machine.  
 - **PDF ingestion**: Extracts and splits documents with ```langchain_community``` loaders.  
 - **Vector search**: Stores and retrieves chunks with ChromaDB.  
@@ -22,7 +22,7 @@ It allows you to **upload PDFs**, embed them locally, and query them using your 
 
 ---
 
-## 📂 Project Structure
+## Project Structure
 ```
 ├── app.py                   # Flask web app
 ├── populate_database.py     # Script to ingest PDFs into Chroma
@@ -40,7 +40,7 @@ It allows you to **upload PDFs**, embed them locally, and query them using your 
 
 ---
 
-## ⚙️ Setup
+## Setup
 
 ### Option 1: Run with Docker (recommended)
 
@@ -105,7 +105,7 @@ Open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
 ---
 
-## 📚 Adding Documents
+## Adding Documents
 1. Place your PDFs inside the ```data/``` folder.  
 2. Ingest them into Chroma:
    ```
@@ -120,12 +120,12 @@ Open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 
 ---
 
-## ⚡ GPU Acceleration
+## GPU Acceleration
 By default, Ollama will **use GPU if available**.  
 
 ---
 
-## 🐞 Debugging
+## Debugging
 
 - **Logs**:
   ```
@@ -145,7 +145,7 @@ By default, Ollama will **use GPU if available**.
 
 ---
 
-## 🛠️ Known Issues
+## Known Issues
 - First query after starting a model can be slow (model load time).  
 - Without GPU, inference will be slower (CPU only).  
 - On Mac/Windows (Docker Desktop), GPU passthrough may not be supported.  
