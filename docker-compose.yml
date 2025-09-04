@@ -1,0 +1,33 @@
+services:
+  app:
+    build: .
+    container_name: rag_pdf_qna_app
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    # Mount your local folders into the container’s filesystem
+    volumes:
+      - ./data:/usr/src/app/data
+      - ./instance:/usr/src/app/instance
+      - ./chroma_langchain_db:/usr/src/app/chroma_langchain_db
+    env_file:
+      - .env
+    depends_on:
+      - ollama
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama_server
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all 
+              capabilities: [gpu]
+volumes:
+  ollama_data:

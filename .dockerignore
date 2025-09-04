@@ -1,0 +1,29 @@
+# Exclude Python virtual env
+.venv/
+venv/
+
+.__pycache__/
+__pycache__/
+
+.vscode/
+vscode/
+
+# Local database & data folders
+chroma_langchain_db/
+instance/
+data/
+
+# Notebooks and test scripts
+*.ipynb
+test_*.py
+
+# Environment files & config
+.env
+config.json
+
+# Git and Docker cache
+.git/
+.gitignore
+Dockerfile.*
+
+README.md

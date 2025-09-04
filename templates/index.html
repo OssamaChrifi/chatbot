@@ -1,0 +1,232 @@
+<!-- templates/index.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Chatbox with Ollama</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Highlight.js CSS via CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.7.0/styles/default.min.css">
+    <!-- SocketIO Client Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+    #overlay {position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(255,255,255,0.8);display:none;align-items:center;justify-content:center;z-index:9999;font-size:1.5rem;color:#333;}
+    #overlay.show{display:flex;}
+  </style>
+</head>
+<body>
+    <div id="overlay"></div>
+    <div class="container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>MyChat</h2>
+            </div>
+            <button class="new-chat-btn" onclick="window.location.href='/new_chat'">+ New Chat</button>
+            <div class="chat-list">
+                {% for chat_id in chats.keys() %}
+                    <div class="chat-item {% if chat_id == current_chat %}active{% endif %}" onclick="window.location.href='/select_chat/{{ chat_id }}'">
+                        {{ chat_id }}
+                    </div>
+                {% endfor %}
+            </div>
+            <div class="sidebar-footer">
+                <button class="sidebar-action-btn" id="reset-db">
+                    🗑️ Reset DB
+                </button>
+                <button class="sidebar-action-btn" id="update-db">
+                    📄 Add New Docs
+                </button>
+                <button class="clear-chat-btn" onclick="window.location.href='/clear'">🧹 Clear Chat</button>
+                <p>© 2025 MyChat</p>
+            </div>
+        </div>
+
+        <!-- Main Chat Area -->
+        <div class="chat-area">
+            <div class="chat-header">
+                <h3>{{ current_chat }}</h3>
+                <select id="model-select" onchange="selectModel(this.value)">
+                    {% for model in available_models %}
+                        <option value="{{ model }}" {% if model == selected_model %}selected{% endif %}>{{ model }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="chat-messages" id="chatMessages">
+                {% for msg in conversation %}
+                    {% if msg.role == 'user' %}
+                        <div class="message user-message">
+                            <div class="avatar user-avatar">U</div>
+                            <div class="message-content">{{ msg.content }}</div>
+                        </div>
+                    {% else %}
+                        <div class="message assistant-message" data-message-id="{{ msg.id }}">
+                            <div class="avatar assistant-avatar">A</div>
+                            <div class="message-content">
+                                {{ msg.content | safe }}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            <!-- Chat Input Area -->
+            <div class="chat-input-area">
+                <form method="POST" enctype="multipart/form-data" id="chat-form">
+                    <input 
+                        type="text" 
+                        name="query" 
+                        placeholder="Message MyChat..." 
+                        autofocus 
+                        required 
+                        autocomplete="off"
+                    />
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Initialize SocketIO connection
+        const socket = io();
+
+        socket.on('connect', () => {
+            console.log('Connected to websocket');
+            socket.emit('join_chat', { chat_id: '{{ current_chat }}' });
+        });
+
+        document.getElementById('reset-db').onclick=()=>fetch('/reset_chroma',{method:'POST'}).then(r=>r.json()).then(j=>alert('Reset:'+j.status));
+        function disableUI(v){document.querySelectorAll('input,button,select').forEach(el=>el.disabled=v);}
+        let updating=false;
+        document.getElementById('update-db').onclick=()=>{
+            if(updating)return;
+            updating=true;
+            disableUI(true);
+            socket.emit('update_chroma');
+            document.getElementById('overlay').innerText='Updating 0/?';
+            document.getElementById('overlay').classList.add('show');
+        };
+        socket.on('loading_progress', data => {
+            const { current, total } = data;
+            document.getElementById('overlay').innerText = 
+                `Loading documents: ${current}/${total}`;
+        });
+        socket.on('update_progress',d=>{
+            document.getElementById('overlay').innerText=`Add document in VectorDB`;
+        });
+        socket.on('update_complete', d => {
+            document.getElementById('overlay').innerText = `Done! Added ${d.added}`;
+            setTimeout(() => {
+                document.getElementById('overlay').classList.remove('show');
+                disableUI(false);
+                updating = false;
+            }, 1500);
+        });
+        socket.on('start_stream', (data) => {
+            addMessageToChat('assistant', 'Generating...', data.message_id);
+        });
+
+        socket.on('stream_token', (data) => {
+            const messageDiv = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
+            if (messageDiv) {
+                const contentDiv = messageDiv.querySelector('.message-content');
+                contentDiv.innerHTML += data.token;
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            } else {
+                console.error(`Message with ID ${data.message_id} not found for token`);
+            }
+        });
+
+        socket.on('final_response', (data) => {
+            const messageDiv = document.querySelector(`.message[data-message-id="${data.message_id}"]`);
+            if (messageDiv) {
+                const contentDiv = messageDiv.querySelector('.message-content');
+                contentDiv.innerHTML = data.final_message; // Replace with final HTML
+                const chatMessages = document.getElementById('chatMessages');
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            } else {
+                console.error(`Message with ID ${data.message_id} not found for final response`);
+            }
+        });
+
+        document.getElementById('chat-form').addEventListener('submit', function(event) {
+            event.preventDefault();
+            const queryInput = document.querySelector('input[name="query"]');
+            const query = queryInput.value.trim();
+            if (query) {
+                queryInput.value = ''; // Clear input
+                addMessageToChat('user', query); // Add user message immediately
+                socket.emit('submit_query', { query: query, chat_id: '{{ current_chat }}' });
+            }
+        });
+
+        function resetDB() {
+            fetch('/reset_chroma', { method: 'POST' })
+                .then(res => res.json())
+                .then(data => alert(`Database reset: ${data.status}`))
+                .catch(err => alert('Error resetting DB'));
+        }
+
+        function addNewDocs() {
+            socket.emit('update_chroma'); // or fetch('/update_chroma') if using HTTP
+        }
+
+        function selectModel(model) {
+            fetch('/select_model', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ model: model })
+            })
+            .then(response => response.json())
+            .then(data => console.log('Model selected:', data));
+}
+
+        function addMessageToChat(role, content, messageId = null) {
+            const chatMessages = document.getElementById('chatMessages');
+            if (!chatMessages) {
+                console.error('chatMessages element not found');
+                return;
+            }
+
+            // Check if a message with this ID already exists (for assistant messages only)
+            let messageDiv = messageId ? document.querySelector(`.message[data-message-id="${messageId}"]`) : null;
+
+            if (!messageDiv) {
+                // Create a new message
+                messageDiv = document.createElement('div');
+                messageDiv.className = `message ${role}-message`;
+                if (messageId) {
+                    messageDiv.setAttribute('data-message-id', messageId);
+                }
+                const avatarDiv = document.createElement('div');
+                avatarDiv.className = `avatar ${role}-avatar`;
+                avatarDiv.textContent = role === 'user' ? 'U' : 'A';
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'message-content';
+                if (role === 'user') {
+                    contentDiv.textContent = content; // Plain text for user messages
+                } else {
+                    contentDiv.innerHTML = content; // HTML for assistant messages
+                }
+                messageDiv.appendChild(avatarDiv);
+                messageDiv.appendChild(contentDiv);
+                chatMessages.appendChild(messageDiv);
+            } else {
+                // Update existing message (for assistant only)
+                const contentDiv = messageDiv.querySelector('.message-content');
+                contentDiv.innerHTML = content;
+            }
+
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        // Auto-scroll to the bottom on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const chatMessages = document.getElementById('chatMessages');
+            if (chatMessages) {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+        });
+    </script>
+</body>
+</html>
