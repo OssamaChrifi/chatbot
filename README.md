@@ -1,5 +1,7 @@
 # RAG PDF QnA with Ollama & LangChain
 
+![My Image](chatbot.png)
+
 This project is  a **local Retrieval-Augmented Generation (RAG) chatbot** built with:
 
 - [Flask](https://flask.palletsprojects.com/) + [Flask-SocketIO](https://flask-socketio.readthedocs.io/) (web app & real-time chat)  
@@ -90,13 +92,7 @@ FLASK_SECRET_KEY=your_secret_key
 OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-#### 3. Populate database
-Put your PDFs into the ```data/``` folder and run:
-```
-python populate_database.py
-```
-
-#### 4. Start the app
+#### 3. Start the app
 ```
 flask run
 ```
@@ -106,17 +102,8 @@ Open [http://127.0.0.1:5000](http://127.0.0.1:5000).
 ---
 
 ## Adding Documents
-1. Place your PDFs inside the ```data/``` folder.  
-2. Ingest them into Chroma:
-   ```
-   docker exec -it rag_pdf_qna_app python populate_database.py
-   ```
-3. Optionally reset the database:
-   ```
-   docker exec -it rag_pdf_qna_app python populate_database.py --reset
-   ```
-
-(If running locally, replace ```docker exec ...``` with ```python populate_database.py```.)
+1. Place your PDFs inside the ```data/``` folder and press ```Add New Docs``` button in the app
+2. You can also Reset the DB 
 
 ---
 
